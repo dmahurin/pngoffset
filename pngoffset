@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+# Add offset to PNG file (oFFs or caNv chunk)
+
+from apng import PNG, make_chunk, Chunk
+import struct
+import sys
+import argparse
+
+parser = argparse.ArgumentParser(description='PNG offset update')
+
+parser.add_argument('infile', help='input file')
+parser.add_argument('x', type=int, help='x')
+parser.add_argument('y', type=int, help='y')
+parser.add_argument('-o', '--out', help='output file. default is input file')
+parser.add_argument('-t', '--type', help='offset type, caNv or oFFs',choices=['oFFs', 'caNv' ], default='oFFs')
+
+args = parser.parse_args()
+
+infile = args.infile
+x = args.x
+y = args.y
+offset_type = args.type
+if(args.out != None):
+	outfile = args.out
+else:
+	outfile = infile
+
+a = -1
+d = -1
+
+im = PNG.open(infile)
+for i in range(len(im.chunks)):
+	if(a < 0 and im.chunks[i].type == 'IDAT'):
+		a = i
+	elif(d < 0 and im.chunks[i].type == offset_type):
+		d = i
+
+if d >= 0 and d > a:
+	im.chunks[d:d+1] = []
+	d = -1
+if a >= 0:
+	if(offset_type == 'oFFs'):
+		im.chunks[a:a] = [ Chunk("oFFs", make_chunk("oFFs", struct.pack("!iib", x, y, 0))) ]
+	elif(offset_type == 'caNv'):
+		im.chunks[a:a] = [ Chunk("caNv", make_chunk("caNv", struct.pack("!IIii", im.width, im.height, x, y))) ]
+if d >= 0:
+	im.chunks[d:d+1] = []
+im.save(outfile)
